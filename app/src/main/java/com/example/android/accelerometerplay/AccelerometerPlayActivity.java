@@ -110,7 +110,6 @@ public class AccelerometerPlayActivity extends Activity {
         saveButton.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT ));
         saveButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-
                 try {
                     File myFile = new File("/sdcard/recordedMoCapData.txt");
                     myFile.createNewFile();
@@ -382,7 +381,7 @@ public class AccelerometerPlayActivity extends Activity {
 
         public SimulationView(Context context) {
             super(context);
-            mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+            mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
             mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
             mMagneticField = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
             DisplayMetrics metrics = new DisplayMetrics();
@@ -422,7 +421,7 @@ public class AccelerometerPlayActivity extends Activity {
              * to with the screen in its native orientation).
              */
 
-            if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
+            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
                 switch (mDisplay.getRotation()) {
                     case Surface.ROTATION_0:
                         mSensorX = event.values[0];
@@ -445,7 +444,7 @@ public class AccelerometerPlayActivity extends Activity {
             Log.v("Debug", gravityValues + " " + magneticValues + " " + event.sensor.getType());
             if (recording) {
                 if ((gravityValues != null) && (magneticValues != null)
-                        && (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION)) {
+                        && (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)) {
 
 
                     float[] deviceRelativeAcceleration = new float[4];
