@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/AccelerometerPlay.iml" filepath="$PROJECT_DIR$/AccelerometerPlay.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Android_MoCap.iml" filepath="$PROJECT_DIR$/Android_MoCap.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
   </component>

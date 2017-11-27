@@ -37,8 +37,15 @@ import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 import android.util.Log;
+import android.widget.Toast;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
 
 /**
  * This is an example of using the accelerometer to integrate the device's
@@ -60,7 +67,9 @@ public class AccelerometerPlayActivity extends Activity {
     private WindowManager mWindowManager;
     private Display mDisplay;
     private WakeLock mWakeLock;
-
+    boolean recording = false;
+    String recordedData = "";
+    Vector3 baseline = new Vector3();
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -83,6 +92,44 @@ public class AccelerometerPlayActivity extends Activity {
         // instantiate our simulation view and set it as the activity's content
         mSimulationView = new SimulationView(this);
         mSimulationView.setBackgroundResource(R.drawable.wood);
+
+        //Just adds a button to be able to decide when to record and not.
+        Button recordButton = new Button(this);
+        recordButton.setText("Record");
+        recordButton.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT ));
+        recordButton.setOnClickListener(new View.OnClickListener()
+        {
+            public void onClick(View v)
+            {
+                recording = !recording;
+            }
+        });
+
+        Button saveButton = new Button(this);
+        saveButton.setText("Record");
+        saveButton.setLayoutParams(new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT ));
+        saveButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+
+                try {
+                    File myFile = new File("/sdcard/recordedMoCapData.txt");
+                    myFile.createNewFile();
+                    FileOutputStream fOut = new FileOutputStream(myFile);
+                    OutputStreamWriter myOutWriter = new OutputStreamWriter(fOut);
+                    myOutWriter.append(recordedData);
+                    myOutWriter.close();
+                    fOut.close();
+                    Toast.makeText(v.getContext(), "Done writing SD 'mysdfile.txt'", Toast.LENGTH_SHORT).show();
+                    recordedData = "";
+                } catch (Exception e) {
+                    Toast.makeText(v.getContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        mSimulationView.addView(recordButton);
+
+
         setContentView(mSimulationView);
     }
 
@@ -123,6 +170,9 @@ public class AccelerometerPlayActivity extends Activity {
         private final int mDstWidth;
         private final int mDstHeight;
 
+        private float[] history = new float[4];
+
+        String [] direction = {"NONE","NONE","NONE"};
         private Sensor mAccelerometer;
         private Sensor mGravity;
         private Sensor mMagneticField;
@@ -321,9 +371,9 @@ public class AccelerometerPlayActivity extends Activity {
              * CPU resources.
              */
 
-            mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
-            mSensorManager.registerListener(this, mMagneticField, SensorManager.SENSOR_DELAY_GAME);
-            mSensorManager.registerListener(this, mGravity, SensorManager.SENSOR_DELAY_GAME);
+            mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_FASTEST);
+            mSensorManager.registerListener(this, mMagneticField, SensorManager.SENSOR_DELAY_FASTEST);
+            mSensorManager.registerListener(this, mGravity, SensorManager.SENSOR_DELAY_FASTEST);
         }
 
         public void stopSimulation() {
@@ -332,7 +382,7 @@ public class AccelerometerPlayActivity extends Activity {
 
         public SimulationView(Context context) {
             super(context);
-            mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+            mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
             mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
             mMagneticField = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
             DisplayMetrics metrics = new DisplayMetrics();
@@ -372,7 +422,7 @@ public class AccelerometerPlayActivity extends Activity {
              * to with the screen in its native orientation).
              */
 
-            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
                 switch (mDisplay.getRotation()) {
                     case Surface.ROTATION_0:
                         mSensorX = event.values[0];
@@ -392,35 +442,84 @@ public class AccelerometerPlayActivity extends Activity {
                         break;
                 }
             }
-            if ((gravityValues != null) && (magneticValues != null)
-                    && (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)) {
-                float[] deviceRelativeAcceleration = new float[4];
-                deviceRelativeAcceleration[0] = event.values[0];
-                deviceRelativeAcceleration[1] = event.values[1];
-                deviceRelativeAcceleration[2] = event.values[2];
-                deviceRelativeAcceleration[3] = 0;
+            Log.v("Debug", gravityValues + " " + magneticValues + " " + event.sensor.getType());
+            if (recording) {
+                if ((gravityValues != null) && (magneticValues != null)
+                        && (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION)) {
 
-                // Change the device relative acceleration values to earth relative values
-                // X axis -> East
-                // Y axis -> North Pole
-                // Z axis -> Sky
-                Log.v("Mag val", magneticValues[0] + "," + magneticValues[2] + "," + magneticValues[2] + " " + gravityValues[0] + " " + gravityValues[1] + " " + gravityValues[2]);
-                float[] R = new float[16], I = new float[16], earthAcc = new float[16];
 
-                SensorManager.getRotationMatrix(R, I, gravityValues, magneticValues);
+                    float[] deviceRelativeAcceleration = new float[4];
+                    deviceRelativeAcceleration[0] = event.values[0];
+                    deviceRelativeAcceleration[1] = event.values[1];
+                    deviceRelativeAcceleration[2] = event.values[2];
+                    deviceRelativeAcceleration[3] = 0;
 
-                float[] inv = new float[16];
 
-                android.opengl.Matrix.invertM(inv, 0, R, 0);
-                android.opengl.Matrix.multiplyMV(earthAcc, 0, inv, 0, deviceRelativeAcceleration, 0);
-                //Log.v("Acceleration", "Values: (" + earthAcc[0] + ", " + earthAcc[1] + ", " + earthAcc[2] + ")");
+                    // Change the device relative acceleration values to earth relative values
+                    // X axis -> East
+                    // Y axis -> North Pole
+                    // Z axis -> Sky
+                    Log.v("Mag val", magneticValues[0] + "," + magneticValues[2] + "," + magneticValues[2] + " " + gravityValues[0] + " " + gravityValues[1] + " " + gravityValues[2]);
+                    float[] R = new float[16], I = new float[16], earthAcc = new float[16];
 
-            } else if (event.sensor.getType() == Sensor.TYPE_GRAVITY) {
-                gravityValues = event.values;
-            } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-                magneticValues = event.values;
+                    SensorManager.getRotationMatrix(R, I, gravityValues, magneticValues);
+
+                    float[] inv = new float[16];
+
+                    android.opengl.Matrix.invertM(inv, 0, R, 0);
+                    android.opengl.Matrix.multiplyMV(earthAcc, 0, inv, 0, deviceRelativeAcceleration, 0);
+                    Log.v("Acceleration", "Values: (" + earthAcc[0] + ", " + earthAcc[1] + ", " + (earthAcc[2] - gravityValues[2]) + ")");
+
+                    baseline.x = baseline.x + earthAcc[0];//.add(new Vector3(earthAcc[0], earthAcc[1], earthAcc[2] - gravityValues[2]));
+                    baseline.y = baseline.y + earthAcc[1];
+                    baseline.z = baseline.z + earthAcc[2]; //+ gravityValues[2];
+
+                    /*
+                    baseline.x = baseline.x + deviceRelativeAcceleration[0];//.add(new Vector3(earthAcc[0], earthAcc[1], earthAcc[2] - gravityValues[2]));
+                    baseline.y = baseline.y + deviceRelativeAcceleration[1];
+                    baseline.z = baseline.z + deviceRelativeAcceleration[2]; //+ gravityValues[2];
+                    */
+                    //recordedData = recordedData + baseline;
+                    Log.v("Stupidity",recordedData + baseline.x + "," + baseline.y + "," + baseline.z + "\n");
+
+
+
+                    float xChange = history[0] - earthAcc[0];
+                    float yChange = history[1] - earthAcc[1];
+                    float zChange = history[2] - earthAcc[2];
+
+                    history[0] = earthAcc[0];
+                    history[1] = earthAcc[1];
+                    history[2] = earthAcc[2];
+
+                    if (xChange > 2) {
+                        direction[0] = "vLEFT";
+                    } else if (xChange < -2) {
+                        direction[0] = "vRIGHT";
+                    }
+
+                    if (yChange > 2) {
+                        direction[1] = "vDOWN";
+                    } else if (yChange < -2) {
+                        direction[1] = "vUP";
+                    }
+
+                    if (zChange > 2) {
+                        direction[2] = "hDOWN";
+                    } else if (zChange < -2) {
+                        direction[2] = "hUP";
+                    }
+
+
+                    Log.v("direction", "dirx: " + direction[0] + "      diry: " + direction[1] + "      dirz: " + direction[2]);
+
+
+                } else if (event.sensor.getType() == Sensor.TYPE_GRAVITY) {
+                    gravityValues = event.values;
+                } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+                    magneticValues = event.values;
+                }
             }
-
         }
 
         @Override
